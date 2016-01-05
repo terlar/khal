@@ -23,6 +23,7 @@ from datetime import date, datetime
 import signal
 import sys
 
+import icalendar
 import urwid
 
 from .. import aux
@@ -362,14 +363,33 @@ class EventColumn(urwid.WidgetWrap):
 class RecursionEditor(urwid.WidgetWrap):
 
     def __init__(self, rrule):
-        # TODO: actually implement the Recursion Editor
-
+        # TODO: support more (complicated) recursion schemes
         self.rrule = rrule
+
         recursive = self.rrule['freq'][0].lower() if self.rrule else NOREPEAT
         self.recursion_choice = Choice(
             [NOREPEAT, u"weekly", u"monthly", u"yearly"], recursive)
         self.columns = urwid.Columns([(10, urwid.Text('Repeat: ')), (11, self.recursion_choice)])
         urwid.WidgetWrap.__init__(self, self.columns)
+
+    @classmethod
+    def fromRrule(cls, rrule):
+        if cls.supported_recursion(rrule):
+            instcls = RecursionEditor
+        else:
+            instcls = UnsupportedRecursionEditor
+        return instcls(rrule)
+
+    @classmethod
+    def supported_recursion(cls, rrule):
+        if rrule not in [
+                icalendar.vRecur({'FREQ': ['WEEKLY']}),
+                icalendar.vRecur({'FREQ': ['MONTHLY']}),
+                icalendar.vRecur({'FREQ': ['YEARLY']}),
+        ]:
+            return False
+        else:
+            return True
 
     @property
     def changed(self):
@@ -388,6 +408,17 @@ class RecursionEditor(urwid.WidgetWrap):
     @active.setter
     def active(self, val):
         self.recursion_choice.active = val
+
+
+class UnsupportedRecursionEditor(urwid.WidgetWrap):
+    def __init__(self, rrule):
+        self.rrule = rrule
+        self.columns = urwid.Columns([(10, urwid.Text('Repeat: ')),
+                                      (11, urwid.Text('unsupported'))])
+        urwid.WidgetWrap.__init__(self, self.columns)
+
+    def changed(self):
+        return False
 
 
 class EventDisplay(urwid.WidgetWrap):
@@ -470,7 +501,7 @@ class EventEditor(urwid.WidgetWrap):
         self.startendeditor = StartEndEditor(
             event.start_local, event.end_local, self.conf,
             self.pane.eventscolumn.original_widget.set_current_date)
-        self.recursioneditor = RecursionEditor(self.event.recurobject)
+        self.recursioneditor = RecursionEditor.fromRrule(self.event.recurobject)
         self.summary = Edit(caption='Title: ', edit_text=event.summary)
 
         divider = urwid.Divider(' ')
