@@ -12,6 +12,8 @@ but most importantly:
  * allday events added with `khal new DATE TIMEDELTA` (e.g., 2017-01-18 3d)
    were lasting one day too long
 
+Special thanks to Tom Rushworth for finding and reporting both bugs!
+
 All other fixed bugs would be rather obvious if you happened to run into them,
 as they would lead to khal crashing in one way or another.
 
